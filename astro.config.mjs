@@ -153,7 +153,6 @@ export default defineConfig({
             "how-to/execute-custom-scripts",
             "how-to/load-and-execute-functions",
             "how-to/scan-cluster",
-            "how-to/modules-api",
             {
               label: "Security",
               items: [
@@ -191,6 +190,13 @@ export default defineConfig({
                 "how-to/monitoring/logging",
                 "how-to/monitoring/open-telemetry",
                 "how-to/monitoring/tracking-resources",
+              ],
+            },
+            {
+              label: "Modules API",
+              items: [
+                "how-to/modules-api/json-module",
+                "how-to/modules-api/search-module",
               ],
             },
           ],
