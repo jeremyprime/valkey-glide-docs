@@ -93,6 +93,8 @@ Use one `GlideClusterClient` (or `GlideClient`) instance per application, shared
 
 Creating a client per request or per thread wastes connections, increases memory usage, and defeats the inflight request management that protects against overload.
 
+For sync APIs with blocking commands (e.g., `BLPOP` with long timeout), the calling thread is occupied for the duration. Size your thread pool accordingly or use async APIs for blocking command consumers.
+
 ## Request Timeout
 
 Set `requestTimeout` based on your expected latency plus a buffer. See [Timeouts and Reconnect Strategy](/how-to/connections/timeouts-and-reconnect-strategy) for configuration details.
@@ -139,6 +141,27 @@ Key log messages to monitor:
 | `Client circuit breaker closed` | Recovery confirmed; normal operation resumed |
 | `Timeout: cmd=... cause=...` | Watchdog fired with structured diagnostics (cause, phase, inflight trend) |
 
+### Timeout Watchdog Metrics
+
+When a command times out, the watchdog logs a structured diagnostic line with the following fields:
+
+| Field | Description |
+|-------|-------------|
+| `cmd` | The Valkey command that timed out |
+| `node` | The resolved target node address (or `"unknown"` if routing didn't complete) |
+| `cause` | Classified root cause: `ServerUnresponsive`, `SystemOverload`, or `ClientBackpressure` |
+| `phase` | `Queued` = command never left the client; `Sent` = command was sent, awaiting response |
+| `elapsed` | Actual wall-clock time since submission |
+| `configured` | The timeout duration that was set |
+| `pending` | Total commands registered with the watchdog at fire time |
+| `inflight` | Format: `at_register→at_timeout`. Shows how backpressure changed during the timeout window |
+| `p99` | Recent p99 latency for this client (from the last 4096 commands) |
+| `suggested_timeout` | 3x observed p99, floored at the configured timeout |
+| `retries` | Number of cluster retries attempted before timeout (only shown if > 0) |
+| `rss` | Process resident set size in MB at fire time (Linux/macOS) |
+
+Use `suggested_timeout` to determine if your configured timeout is too tight. If it consistently exceeds your configured value, increase `requestTimeout`.
+
 ## Circuit Breaker
 
 See the dedicated [Circuit Breaker guide](/how-to/connections/circuit-breaker) for configuration details.
@@ -158,6 +181,7 @@ Both standalone and cluster clients benefit from:
 - Inflight request limiting
 - Client-wide circuit breaker
 - Automatic reconnection with exponential backoff (see [Timeouts and Reconnect Strategy](/how-to/connections/timeouts-and-reconnect-strategy) to customize)
+- Automatic IAM token refresh (when configured)
 
 Cluster clients additionally benefit from:
 - Per-node routing (commands to healthy nodes are unaffected by one bad node)
